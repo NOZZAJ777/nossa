@@ -14,6 +14,7 @@ class _InicioViewState extends State<InicioView> {
   final SupabaseService _supabaseService = SupabaseService();
   int operativos = 0;
   int conFalla = 0;
+  bool _cargando = false;
 
   @override
   void initState() {
@@ -31,7 +32,38 @@ class _InicioViewState extends State<InicioView> {
     } catch (_) {}
   }
 
-  // Despliega el formulario de reporte directo para un equipo
+  Future<void> _escanearQR() async {
+    final String? codigoQr = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (context) => const QrScannerView()),
+    );
+
+    if (codigoQr != null && codigoQr.isNotEmpty) {
+      setState(() => _cargando = true);
+      try {
+        final equipo = await _supabaseService.buscarEquipoPorCodigoQR(codigoQr);
+
+        if (mounted) {
+          if (equipo != null) {
+            _mostrarFormularioReporte(equipo);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('No existe equipo registrado con el código: $codigoQr')),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error en la búsqueda: $e')),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _cargando = false);
+      }
+    }
+  }
+
   void _mostrarFormularioReporte(Equipo equipo) {
     final controller = TextEditingController(text: equipo.observacion);
     bool estadoSeleccionado = equipo.estado;
@@ -123,8 +155,8 @@ class _InicioViewState extends State<InicioView> {
                       try {
                         await _supabaseService.actualizarEquipo(
                           id: equipo.id,
-                          estado: estadoSeleccionado,
                           codigo: equipo.codigo,
+                          estado: estadoSeleccionado,
                           observacion: controller.text,
                         );
 
@@ -154,27 +186,6 @@ class _InicioViewState extends State<InicioView> {
     );
   }
 
-  // Lógica QR
-  Future<void> _escanearQR() async {
-    final String? resultadoQr = await Navigator.push<String>(
-      context,
-      MaterialPageRoute(builder: (context) => const QrScannerView()),
-    );
-
-    if (resultadoQr != null && resultadoQr.isNotEmpty) {
-      final equipo = await _supabaseService.getEquipoPorCodigo(resultadoQr);
-      if (mounted) {
-        if (equipo != null) {
-          _mostrarFormularioReporte(equipo);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('No se encontró ningún equipo con el código: $resultadoQr')),
-          );
-        }
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -183,54 +194,56 @@ class _InicioViewState extends State<InicioView> {
         backgroundColor: const Color(0xFF15438C),
         foregroundColor: Colors.white,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Card(
-                    color: Colors.green.shade50,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          Text('$operativos', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.green)),
-                          const Text('PCs Operativos'),
-                        ],
+      body: _cargando
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Card(
+                          color: Colors.green.shade50,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              children: [
+                                Text('$operativos', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.green)),
+                                const Text('PCs Operativos'),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Card(
-                    color: Colors.red.shade50,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          Text('$conFalla', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.red)),
-                          const Text('Con Falla'),
-                        ],
+                      Expanded(
+                        child: Card(
+                          color: Colors.red.shade50,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              children: [
+                                Text('$conFalla', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.red)),
+                                const Text('Con Falla'),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                ),
-              ],
-            ),
-            const Spacer(),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF15438C),
-                minimumSize: const Size.fromHeight(50),
+                  const Spacer(),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF15438C),
+                      minimumSize: const Size.fromHeight(50),
+                    ),
+                    onPressed: _escanearQR,
+                    child: const Text('+ Nuevo Reporte', style: TextStyle(color: Colors.white)),
+                  )
+                ],
               ),
-              onPressed: _escanearQR,
-              child: const Text('+ Nuevo Reporte', style: TextStyle(color: Colors.white)),
-            )
-          ],
-        ),
-      ),
+            ),
     );
   }
 }

@@ -6,6 +6,7 @@ class SupabaseService {
   final SupabaseClient _client = Supabase.instance.client;
     
   // Get: Obtener todos los equipos ordenados por código
+  // https://whjitibfvcgrlrsfszmj.supabase.co/rest/v1/equipos?select=*
   Future<List<Equipo>> getEquipos() async {
     try {
       final response = await _client
@@ -61,7 +62,9 @@ class SupabaseService {
     }
   }
 
-  // Buscar equipo por el código del QR (ejemplo: "3176593" o "PC-317-01")
+  // GET: 
+  //Buscar equipo por el código del QR 
+  //https://whjitibfvcgrlrsfszmj.supabase.co/rest/v1/equipos?codigo=eq.PC-317-01&select=*
   Future<Equipo?> getEquipoPorCodigo(String codigo) async {
     try {
       final response = await _client
@@ -74,6 +77,26 @@ class SupabaseService {
       return Equipo.fromMap(response);
     } catch (e) {
       throw Exception('Error al buscar equipo por código: $e');
+    }
+  }
+
+   /// Busca un equipo por el código obtenido del código QR
+  Future<Equipo?> buscarEquipoPorCodigoQR(String codigoQr) async {
+    try {
+      final codigoLimpio = codigoQr.trim();
+      
+      final response = await _client
+          .from('equipos')
+          .select()
+          .eq('codigo', codigoLimpio)
+          .maybeSingle();
+
+      if (response == null) {
+        return null;
+      }
+      return Equipo.fromMap(response);
+    } catch (e) {
+      throw Exception('Error al consultar el equipo por QR: $e');
     }
   }
 
