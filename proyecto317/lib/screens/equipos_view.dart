@@ -11,10 +11,13 @@ class EquiposView extends StatefulWidget {
 
 class _EquiposViewState extends State<EquiposView> {
   final SupabaseService _supabaseService = SupabaseService();
+  String _filtroTexto = '';
 
-  void _abrirFormularioReporte(Equipo equipo) {
-    final controller = TextEditingController(text: equipo.observacion);
-    bool estadoActual = equipo.estado;
+  // Despliega el formulario para modificar el equipo seleccionado
+  void _editarEquipoDialog(Equipo equipo) {
+    final codigoController = TextEditingController(text: equipo.codigo);
+    final observacionController = TextEditingController(text: equipo.observacion);
+    bool estadoSeleccionado = equipo.estado;
 
     showModalBottomSheet(
       context: context,
@@ -36,44 +39,49 @@ class _EquiposViewState extends State<EquiposView> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Reportar Estado',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Editar Equipo',
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 15),
-                  
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      'Equipo seleccionado: PC-${equipo.codigo}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF15438C),
-                      ),
+                  TextField(
+                    controller: codigoController,
+                    decoration: const InputDecoration(
+                      labelText: 'Código del Equipo',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.computer),
                     ),
                   ),
                   const SizedBox(height: 20),
-                  
-                  const Text('Condición actual:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text('Estado del Equipo:', style: TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
-                  
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton(
                           style: OutlinedButton.styleFrom(
-                            backgroundColor: estadoActual ? Colors.green.shade100 : Colors.transparent,
-                            side: BorderSide(color: estadoActual ? Colors.green : Colors.grey),
+                            backgroundColor: estadoSeleccionado ? Colors.green.shade100 : Colors.transparent,
+                            side: BorderSide(
+                              color: estadoSeleccionado ? Colors.green : Colors.grey,
+                              width: estadoSeleccionado ? 2 : 1,
+                            ),
                           ),
-                          onPressed: () => setModalState(() => estadoActual = true),
+                          onPressed: () => setModalState(() => estadoSeleccionado = true),
                           child: Text(
                             'OPERATIVO',
-                            style: TextStyle(color: estadoActual ? Colors.green.shade900 : Colors.grey.shade700),
+                            style: TextStyle(
+                              color: estadoSeleccionado ? Colors.green.shade900 : Colors.grey,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
@@ -81,65 +89,66 @@ class _EquiposViewState extends State<EquiposView> {
                       Expanded(
                         child: OutlinedButton(
                           style: OutlinedButton.styleFrom(
-                            backgroundColor: !estadoActual ? Colors.red.shade100 : Colors.transparent,
-                            side: BorderSide(color: !estadoActual ? Colors.red : Colors.grey),
+                            backgroundColor: !estadoSeleccionado ? Colors.red.shade100 : Colors.transparent,
+                            side: BorderSide(
+                              color: !estadoSeleccionado ? Colors.red : Colors.grey,
+                              width: !estadoSeleccionado ? 2 : 1,
+                            ),
                           ),
-                          onPressed: () => setModalState(() => estadoActual = false),
+                          onPressed: () => setModalState(() => estadoSeleccionado = false),
                           child: Text(
                             'CON FALLA',
-                            style: TextStyle(color: !estadoActual ? Colors.red.shade900 : Colors.grey.shade700),
+                            style: TextStyle(
+                              color: !estadoSeleccionado ? Colors.red.shade900 : Colors.grey,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 20),
-                  
                   TextField(
-                    controller: controller,
+                    controller: observacionController,
                     maxLines: 3,
                     decoration: const InputDecoration(
-                      labelText: 'Detalle o Novedad:',
-                      hintText: 'Describe el problema del equipo si aplica...',
+                      labelText: 'Observaciones / Detalles',
                       border: OutlineInputBorder(),
+                      alignLabelWithHint: true,
                     ),
                   ),
                   const SizedBox(height: 20),
-                
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green.shade700,
+                      backgroundColor: const Color(0xFF15438C),
                       minimumSize: const Size.fromHeight(50),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     onPressed: () async {
                       try {
                         await _supabaseService.actualizarEquipo(
                           id: equipo.id,
-                          estado: estadoActual,
-                          observacion: controller.text,
+                          codigo: codigoController.text.trim(),
+                          estado: estadoSeleccionado,
+                          observacion: observacionController.text.trim(),
                         );
 
                         if (mounted) {
                           Navigator.pop(context);
-                          setState(() {});
+                          setState(() {}); // Recarga la vista para mostrar los cambios actualizados
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Estado actualizado correctamente')),
+                            const SnackBar(content: Text('Equipo actualizado correctamente')),
                           );
                         }
                       } catch (e) {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error al actualizar: $e')),
+                            SnackBar(content: Text('Error al guardar: $e')),
                           );
                         }
                       }
                     },
-                    child: const Text(
-                      'GUARDAR EN SUPABASE',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
-                  )
+                    child: const Text('GUARDAR CAMBIOS', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
                 ],
               ),
             );
@@ -153,82 +162,125 @@ class _EquiposViewState extends State<EquiposView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Equipos'),
+        title: const Text('Gestión de Equipos'),
         backgroundColor: const Color(0xFF15438C),
         foregroundColor: Colors.white,
       ),
-      body: FutureBuilder<List<Equipo>>(
-        future: _supabaseService.getEquipos(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.hasError) {
-            return Center(child: Text('Error al cargar datos: ${snapshot.error}'));
-          }
-
-          final listaEquipos = snapshot.data ?? [];
-
-          if (listaEquipos.isEmpty) {
-            return const Center(child: Text('No hay equipos registrados.'));
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            itemCount: listaEquipos.length,
-            itemBuilder: (context, index) {
-              final equipo = listaEquipos[index];
-              final bool esOperativo = equipo.estado;
-
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                shape: RoundedRectangleBorder(
-                  side: BorderSide(
-                    color: esOperativo ? Colors.green.shade300 : Colors.red.shade300,
-                    width: 1.5,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
+      body: Column(
+        children: [
+          // Campo de Búsqueda
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Buscar equipo por código o estado...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  leading: CircleAvatar(
-                    radius: 6,
-                    backgroundColor: esOperativo ? Colors.green : Colors.red,
-                  ),
-                  title: Text(
-                    'PC-${equipo.codigo}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  subtitle: Text(
-                    equipo.observacion.isEmpty ? 'Sin novedad' : equipo.observacion,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: esOperativo ? Colors.grey.shade600 : Colors.red.shade700,
-                    ),
-                  ),
-                  trailing: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: esOperativo ? Colors.green.shade800 : Colors.red.shade800,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      esOperativo ? 'BIEN' : 'MAL',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+              ),
+              onChanged: (val) {
+                setState(() {
+                  _filtroTexto = val.toLowerCase();
+                });
+              },
+            ),
+          ),
+          Expanded(
+            child: FutureBuilder<List<Equipo>>(
+              future: _supabaseService.getEquipos(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error al cargar equipos: ${snapshot.error}'));
+                }
+
+                final todosLosEquipos = snapshot.data ?? [];
+
+                // Filtrar según la entrada del usuario
+                final equiposFiltrados = todosLosEquipos.where((eq) {
+                  final cod = eq.codigo.toLowerCase();
+                  final obs = eq.observacion.toLowerCase();
+                  return cod.contains(_filtroTexto) || obs.contains(_filtroTexto);
+                }).toList();
+
+                if (equiposFiltrados.isEmpty) {
+                  return const Center(child: Text('No se encontraron equipos.'));
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  itemCount: equiposFiltrados.length,
+                  itemBuilder: (context, index) {
+                    final equipo = equiposFiltrados[index];
+                    final bool esOperativo = equipo.estado;
+
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                    ),
-                  ),
-                  onTap: () => _abrirFormularioReporte(equipo),
-                ),
-              );
-            },
-          );
-        },
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        leading: CircleAvatar(
+                          backgroundColor: esOperativo ? Colors.green.shade100 : Colors.red.shade100,
+                          child: Icon(
+                            esOperativo ? Icons.computer : Icons.warning_amber_rounded,
+                            color: esOperativo ? Colors.green.shade800 : Colors.red.shade800,
+                          ),
+                        ),
+                        title: Text(
+                          'Código: ${equipo.codigo}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: esOperativo ? Colors.green.shade50 : Colors.red.shade50,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: esOperativo ? Colors.green : Colors.red),
+                              ),
+                              child: Text(
+                                esOperativo ? 'OPERATIVO' : 'CON FALLA',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: esOperativo ? Colors.green.shade800 : Colors.red.shade800,
+                                ),
+                              ),
+                            ),
+                            if (equipo.observacion.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                'Obs: ${equipo.observacion}',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                              ),
+                            ]
+                          ],
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.edit, color: Color(0xFF15438C)),
+                          onPressed: () => _editarEquipoDialog(equipo),
+                        ),
+                        onTap: () => _editarEquipoDialog(equipo),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
